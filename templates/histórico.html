@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Histórico de Leituras{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Histórico de Leituras</h1>
+  <span class="badge">{{ leituras|length }} registros nesta página</span>
+</div>
+
+{% if leituras %}
+<div class="table-wrapper">
+  <table class="table" id="tabelaHistorico">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Temperatura (°C)</th>
+        <th>Umidade do Solo (0–1023)</th>
+        <th>Timestamp</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in leituras %}
+      <tr id="row-{{ l.id }}">
+        <td>#{{ l.id }}</td>
+        <td>{{ "%.1f"|format(l.temperatura_externa) }}</td>
+        <td>{{ l.umidade_do_solo }}</td>
+        <td>{{ l.timestamp }}</td>
+        <td class="actions">
+          <a href="/editar/{{ l.id }}" class="btn btn-sm btn-edit">Editar</a>
+          <button class="btn btn-sm btn-danger" onclick="deletar({{ l.id }})">Excluir</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="pagination">
+  {% if pagina > 1 %}
+  <a href="/historico?pagina={{ pagina - 1 }}" class="btn btn-secondary">← Anterior</a>
+  {% endif %}
+  <span class="page-info">Página {{ pagina }}</span>
+  {% if tem_proxima %}
+  <a href="/historico?pagina={{ pagina + 1 }}" class="btn btn-secondary">Próxima →</a>
+  {% endif %}
+</div>
+
+{% else %}
+<p class="empty-state">Nenhuma leitura registrada ainda.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function deletar(id) {
+    if (!confirm(`Excluir leitura #${id}?`)) return;
+
+    try {
+      const res = await fetch(`/leituras/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        const row = document.getElementById(`row-${id}`);
+        row.classList.add('fade-out');
+        row.addEventListener('animationend', () => row.remove());
+      } else {
+        alert('Erro ao excluir a leitura.');
+      }
+    } catch (e) {
+      alert('Erro de comunicação com o servidor.');
+    }
+  }
+</script>
+{% endblock %}
