@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Painel Principal{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Painel Principal</h1>
+  <div class="header-actions">
+    <span class="refresh-indicator" id="refreshIndicator">
+      <span class="dot"></span> Atualização automática
+    </span>
+    <button class="btn btn-secondary" id="btnAtualizar">Atualizar agora</button>
+  </div>
+</div>
+
+<div class="cards-grid" id="cardsContainer">
+  {% if leituras %}
+    {% for l in leituras %}
+    <div class="card">
+      <div class="card-id">#{{ l.id }}</div>
+      <div class="card-body">
+        <div class="metric">
+          <span class="metric-icon">🌡️</span>
+          <div>
+            <div class="metric-label">Temperatura</div>
+            <div class="metric-value">{{ "%.1f"|format(l.temperatura_externa) }} °C</div>
+          </div>
+        </div>
+        <div class="metric">
+          <span class="metric-icon">💧</span>
+          <div>
+            <div class="metric-label">Umidade do Solo</div>
+            <div class="metric-value">{{ l.umidade_do_solo }} <small>/ 1023</small></div>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <span class="timestamp">{{ l.timestamp }}</span>
+        <a href="/editar/{{ l.id }}" class="btn btn-sm btn-edit">Editar</a>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="empty-state">Nenhuma leitura registrada ainda.</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const INTERVALO = 30000; // 30 segundos
+  let timer;
+
+  function pulsar() {
+    const dot = document.getElementById('refreshIndicator').querySelector('.dot');
+    dot.classList.add('pulse');
+    setTimeout(() => dot.classList.remove('pulse'), 600);
+  }
+
+  async function atualizarCards() {
+    try {
+      const res = await fetch('/leituras?limite=10');
+      const dados = await res.json();
+      const container = document.getElementById('cardsContainer');
+
+      if (!dados.length) return;
+
+      container.innerHTML = dados.map(l => `
+        <div class="card">
+          <div class="card-id">#${l.id}</div>
+          <div class="card-body">
+            <div class="metric">
+              <span class="metric-icon">🌡️</span>
+              <div>
+                <div class="metric-label">Temperatura</div>
+                <div class="metric-value">${l.temperatura_externa.toFixed(1)} °C</div>
+              </div>
+            </div>
+            <div class="metric">
+              <span class="metric-icon">💧</span>
+              <div>
+                <div class="metric-label">Umidade do Solo</div>
+                <div class="metric-value">${l.umidade_do_solo} <small>/ 1023</small></div>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer">
+            <span class="timestamp">${l.timestamp}</span>
+            <a href="/editar/${l.id}" class="btn btn-sm btn-edit">Editar</a>
+          </div>
+        </div>
+      `).join('');
+
+      pulsar();
+    } catch (e) {
+      console.error('Erro ao atualizar:', e);
+    }
+  }
+
+  function iniciarAutoRefresh() {
+    timer = setInterval(atualizarCards, INTERVALO);
+  }
+
+  document.getElementById('btnAtualizar').addEventListener('click', () => {
+    clearInterval(timer);
+    atualizarCards();
+    iniciarAutoRefresh();
+  });
+
+  iniciarAutoRefresh();
+</script>
+{% endblock %}
