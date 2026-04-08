@@ -1,0 +1,6 @@
+.DS_Store
+venv
+*.db-wal
+*.db-shm
+__pycache__/
+.vscode
