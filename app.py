@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, render_template, abort
 from database import init_db, inserir_leitura, listar_leituras, buscar_leitura, atualizar_leitura, deletar_leitura
+from config import FLASK_HOST, FLASK_PORT, FLASK_DEBUG
 
 app = Flask(__name__)
 
@@ -41,6 +42,20 @@ def editar(id):
 def api_listar():
     limite = request.args.get('limite', 50, type=int)
     return jsonify(listar_leituras(limite=limite))
+
+
+@app.route('/api/grafico', methods=['GET'])
+def api_grafico():
+    """Retorna dados formatados para o gráfico de variação temporal."""
+    leituras = listar_leituras(limite=100)
+    # Inverte a ordem para ter as datas em ordem cronológica
+    leituras = list(reversed(leituras))
+    
+    return jsonify({
+        'timestamps': [l['timestamp'] for l in leituras],
+        'temperaturas': [l['temperatura_externa'] for l in leituras],
+        'umidades': [l['umidade_do_solo'] for l in leituras],
+    })
 
 
 @app.route('/leituras', methods=['POST'])
@@ -87,4 +102,4 @@ def api_deletar(id):
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True)
+    app.run(host=FLASK_HOST, port=FLASK_PORT, debug=FLASK_DEBUG)

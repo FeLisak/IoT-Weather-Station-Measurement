@@ -1,16 +1,13 @@
 import re
 import serial
 import requests
-
-PORTA = '/dev/tty.USB0'
-BAUD = 9600
-URL = 'http://localhost:5000/leituras'
+from config import PORTA_SERIAL, BAUD_RATE, URL_API
 
 def ler_serial():
     temperatura = None
     umidade_do_solo = None
 
-    with serial.Serial(PORTA, BAUD, timeout=2) as ser:
+    with serial.Serial(PORTA_SERIAL, BAUD_RATE, timeout=2) as ser:
         while True:
             linha = ser.readline().decode('utf-8', errors='ignore').strip()
             if not linha:
@@ -32,7 +29,7 @@ def ler_serial():
                     'umidade_do_solo': umidade_do_solo,
                 }
                 try:
-                    requests.post(URL, json=dados)
+                    requests.post(URL_API, json=dados)
                     print(f'Enviado: {dados}')
                 except requests.exceptions.RequestException as e:
                     print(f'Erro ao enviar: {e}')

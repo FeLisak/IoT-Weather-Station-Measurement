@@ -1,7 +1,5 @@
 import sqlite3
-
-DB_PATH = 'dados.db'
-SCHEMA_PATH = 'schema.sql'
+from config import DB_PATH, SCHEMA_PATH
 
 
 def get_db_connection():
