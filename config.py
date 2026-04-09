@@ -14,7 +14,8 @@ DB_PATH = os.getenv('DB_PATH', 'dados.db')
 SCHEMA_PATH = os.getenv('SCHEMA_PATH', 'schema.sql')
 
 # ── Configuração de Porta Serial ───────────────────────────────────────────────
-PORTA_SERIAL = os.getenv('PORTA_SERIAL', '/dev/tty.USB0')
+# Windows: COM3, COM11, etc. | macOS: /dev/tty.usbmodem* | Linux: /dev/ttyUSB0
+PORTA_SERIAL = os.getenv('PORTA_SERIAL', 'COM3')
 BAUD_RATE = int(os.getenv('BAUD_RATE', '9600'))
 
 # ── Configuração da API ────────────────────────────────────────────────────────
