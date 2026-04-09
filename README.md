@@ -4,7 +4,7 @@ Atividade ponderada do Módulo 5 — Automação de Processos e Sistemas.
 
 **Integrantes:** Felipe Karpovas Lisak e Gabriel Mutter de Souza
 
-O objetivo foi construir um sistema completo de ponta a ponta: um dispositivo físico (Arduino com sensor DHT11) que envia leituras de temperatura e umidade do solo via porta serial para um servidor Flask, que armazenou os dados em SQLite e os exibiu em uma interface web.
+O objetivo foi construir um sistema completo de ponta a ponta: um dispositivo físico (Arduino com sensor DHT11) que envia leituras de temperatura e umidade do solo via porta serial para um servidor Flask, que armazena os dados em SQLite e os exibe em uma interface web.
 
 ---
 
@@ -30,15 +30,22 @@ Arduino → Porta Serial USB → serial_reader.py → POST /leituras → SQLite 
 ```
 IoT-Weather-Station-Measurement/
 ├── app.py              # Servidor Flask: rotas de páginas e API REST
+├── config.py           # Configuração centralizada (lê variáveis do .env)
 ├── database.py         # Funções de acesso ao banco (CRUD)
-├── serial_reader.py    # Leitura da porta serial do Arduino
-├── schema.sql          # Script de criação da tabela
+├── serial_reader.py    # Leitura da porta serial com reconexão automática
+├── schema.sql          # Schema da tabela + 30 registros de exemplo
+├── .env.example        # Modelo de variáveis de ambiente
 ├── static/
 │   ├── css/style.css   # Estilos da interface
-│   └── js/main.js      # JavaScript compartilhado
+│   └── js/
+│       ├── config.js   # Constantes de configuração do frontend
+│       ├── main.js     # JavaScript compartilhado (navbar ativa)
+│       ├── dashboard.js # Gráfico, cards e auto-refresh do painel
+│       ├── historico.js # Exclusão de leituras no histórico
+│       └── editar.js   # Submissão assíncrona do formulário de edição
 ├── templates/
 │   ├── base.html       # Layout base (navbar, container)
-│   ├── index.html      # Painel principal com cards e auto-refresh
+│   ├── index.html      # Painel principal
 │   ├── histórico.html  # Tabela de leituras com paginação e exclusão
 │   └── editar.html     # Formulário de edição de uma leitura
 ├── arduino/
@@ -66,10 +73,14 @@ cd IoT-Weather-Station-Measurement
 # Crie e ative o ambiente virtual
 python -m venv venv
 source venv/bin/activate  # Linux/macOS
-venv\Scripts\activate   # Windows
+venv\Scripts\activate     # Windows
 
 # Instale as dependências
-pip install flask pyserial
+pip install flask pyserial python-dotenv
+
+# Configure as variáveis de ambiente
+cp .env.example .env
+# Edite .env conforme seu ambiente (porta serial, etc.)
 ```
 
 ---
@@ -82,7 +93,7 @@ pip install flask pyserial
 python app.py
 ```
 
-O banco de dados foi configurado para ser criado automaticamente na primeira execução. Acesse `http://localhost:5000` no navegador.
+O banco de dados é criado automaticamente na primeira execução com 30 leituras de exemplo. Acesse `http://localhost:5000` no navegador.
 
 ### 2. Iniciar a leitura serial (com Arduino conectado)
 
@@ -92,17 +103,26 @@ Em outro terminal:
 python serial_reader.py
 ```
 
-> Ajuste a variável `PORTA` em `serial_reader.py` conforme seu sistema:
->
-> - macOS: `/dev/tty.usbserial-XXXX` ou `/dev/tty.USB0`
-> - Linux: `/dev/ttyUSB0`
-> - Windows: `COM3`
+Configure a porta serial no arquivo `.env`:
+
+```env
+# Windows
+PORTA_SERIAL=COM3
+
+# macOS
+PORTA_SERIAL=/dev/tty.usbmodem14101
+
+# Linux
+PORTA_SERIAL=/dev/ttyUSB0
+```
+
+O `serial_reader.py` reconecta automaticamente em caso de falha ou porta ocupada (ex.: Serial Monitor do Arduino IDE aberto), sem necessidade de reiniciar manualmente.
 
 ---
 
 ## Banco de Dados
 
-Definimos o schema da tabela `leituras` da seguinte forma:
+O schema da tabela `leituras`:
 
 ```sql
 CREATE TABLE IF NOT EXISTS leituras (
@@ -115,22 +135,23 @@ CREATE TABLE IF NOT EXISTS leituras (
 
 > Configuramos `PRAGMA journal_mode=WAL` na conexão para permitir que o Flask e o `serial_reader.py` escrevessem no banco simultaneamente sem travar um ao outro.
 
+O arquivo `schema.sql` inclui 30 registros de exemplo com variações realistas de temperatura e umidade, inseridos com `INSERT OR IGNORE` para não sobrescrever dados existentes ao reinicializar.
+
 ---
 
 ## API REST
 
-Implementamos os seguintes endpoints:
-
-| Método   | Rota                  | Descrição                              |
-| -------- | --------------------- | -------------------------------------- |
-| `GET`    | `/`                   | Painel principal (últimas 10 leituras) |
-| `GET`    | `/historico?pagina=N` | Histórico paginado (20 por página)     |
-| `GET`    | `/editar/<id>`        | Formulário de edição                   |
-| `GET`    | `/leituras`           | Lista leituras em JSON                 |
-| `POST`   | `/leituras`           | Insere nova leitura                    |
-| `GET`    | `/leituras/<id>`      | Retorna uma leitura específica         |
-| `PUT`    | `/leituras/<id>`      | Atualiza uma leitura                   |
-| `DELETE` | `/leituras/<id>`      | Remove uma leitura                     |
+| Método   | Rota                  | Descrição                                        |
+| -------- | --------------------- | ------------------------------------------------ |
+| `GET`    | `/`                   | Painel principal (últimas 10 leituras)           |
+| `GET`    | `/historico?pagina=N` | Histórico paginado (20 por página)               |
+| `GET`    | `/editar/<id>`        | Formulário de edição                             |
+| `GET`    | `/leituras`           | Lista leituras em JSON                           |
+| `GET`    | `/api/grafico`        | Dados de temperatura e umidade para o gráfico   |
+| `POST`   | `/leituras`           | Insere nova leitura                              |
+| `GET`    | `/leituras/<id>`      | Retorna uma leitura específica                   |
+| `PUT`    | `/leituras/<id>`      | Atualiza uma leitura                             |
+| `DELETE` | `/leituras/<id>`      | Remove uma leitura                               |
 
 ### Exemplos com curl
 
@@ -156,13 +177,13 @@ curl -X DELETE http://localhost:5000/leituras/1
 
 ## Interface Web
 
-Desenvolvemos três páginas:
+Três páginas foram desenvolvidas:
 
-**Painel (`/`)** — exibiu cards com as 10 leituras mais recentes, com atualização automática a cada 30 segundos via JavaScript e botão de atualização manual.
+**Painel (`/`)** — exibe as 10 leituras mais recentes em cards, um gráfico de variação temporal de temperatura e umidade (últimos 100 registros via Chart.js) e atualização automática a cada 30 segundos com botão de atualização manual.
 
-**Histórico (`/historico`)** — apresentou uma tabela com paginação (20 registros por página) e botão de exclusão por linha com animação de remoção.
+**Histórico (`/historico`)** — apresenta uma tabela com paginação (20 registros por página) e botão de exclusão por linha com animação de remoção.
 
-**Edição (`/editar/<id>`)** — trouxe um formulário pré-preenchido com os valores atuais da leitura; a submissão foi feita via `PUT` sem recarregar a página, redirecionando ao histórico após salvar.
+**Edição (`/editar/<id>`)** — traz um formulário pré-preenchido com os valores atuais da leitura; a submissão é feita via `PUT` sem recarregar a página, redirecionando ao histórico após salvar.
 
 ---
 
@@ -173,7 +194,7 @@ O sketch `arduino/estacao.ino` utilizou:
 - Sensor **DHT11** (pino digital 2) para leitura de temperatura
 - Sensor analógico de umidade do solo (pino **A0**), que retorna um valor bruto entre 0 e 1023
 
-O Arduino enviou as leituras pela serial em texto puro, a cada 2 segundos, no seguinte formato:
+O Arduino envia as leituras pela serial em texto puro, a cada 2 segundos, no seguinte formato:
 
 ```
 Temperatura: 23.40 °C
@@ -181,7 +202,7 @@ Umidade do solo: 450
 O solo está: Úmido
 ```
 
-O `serial_reader.py` fez o parse dessas linhas com regex e enviou os dados ao servidor via `POST /leituras` após acumular os dois valores de cada ciclo.
+O `serial_reader.py` faz o parse dessas linhas com regex e envia os dados ao servidor via `POST /leituras` após acumular os dois valores de cada ciclo.
 
 > Caso não haja o hardware disponível, é possível testar o sistema inserindo leituras manualmente via `curl` ou Postman:
 >
